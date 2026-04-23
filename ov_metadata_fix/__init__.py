@@ -43,12 +43,12 @@ def _explicit_file_version():
 
 
 def _walked_file_version():
-    ref = os.environ.get("OV_METADATA_FIX_REF")
+    ref = os.environ.get("OV_METADATA_FIX_REF") or os.environ.get("REVISION_TXT")
     if not ref:
         return None
     name = ref if ref.endswith(".txt") else ref + ".txt"
     roots = []
-    workspace = os.environ.get("OV_METADATA_FIX_ROOT")
+    workspace = os.environ.get("OV_METADATA_FIX_ROOT") or os.environ.get("WORKSPACE")
     if workspace:
         roots.append(workspace)
     roots.append(os.getcwd())
@@ -68,6 +68,23 @@ def _walked_file_version():
             if parent == cur:
                 break
             cur = parent
+
+    for start in roots:
+        start = os.path.abspath(start)
+        if not os.path.isdir(start):
+            continue
+        base_depth = start.rstrip(os.sep).count(os.sep)
+        for root, dirs, files in os.walk(start, followlinks=False):
+            depth = root.rstrip(os.sep).count(os.sep) - base_depth
+            if depth > 5:
+                dirs[:] = []
+                continue
+            if os.path.basename(root) != "revisions":
+                continue
+            if name in files:
+                version = _parse_version_from_file(os.path.join(root, name))
+                if version:
+                    return version
     return None
 
 
